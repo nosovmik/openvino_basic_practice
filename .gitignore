@@ -1,2 +1,8 @@
 # Readme uses 'build' folder, so put it into .gitignore
-build/*
+**/build
+
+public/*
+
+*.xml
+*.bin
+*.mapping
