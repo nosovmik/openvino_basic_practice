@@ -27,7 +27,7 @@ Set blob with data to each of them
     }
 ```
 
-And execute them simultaneously in our loop
+And execute them simultaneously in our loop. Note, code is not optimal, we want to restart request #1 as soon as it completes, not when all requests are finished. To handle completion, use InferRequest::SetCompletionCallback
 
 ```
     while (steady_clock::now() < end_time) {

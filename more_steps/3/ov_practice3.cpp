@@ -53,11 +53,11 @@ int main(int argc, char *argv[])
         auto blob = InferenceEngine::make_shared_blob<uint8_t>(tDesc, image.ptr());
         inferRequests[i].SetBlob("data", blob);
     }
-    int count = 0;
     using namespace std::chrono;
     auto start_time = steady_clock::now();
     auto end_time = steady_clock::now() + seconds(2);
     std::cout << "Running inference...\n";
+    int count = 0;
     while (steady_clock::now() < end_time) {
         for (int i = 0; i < numReq; i++) {
             inferRequests[i].StartAsync();
@@ -66,6 +66,7 @@ int main(int argc, char *argv[])
             inferRequests[i].Wait();
             count++;
         }
+        // TODO: To restart request #1, we don't want to wait for request #10
     }
     end_time = steady_clock::now();
     auto diff = duration_cast<milliseconds>(end_time - start_time).count();
@@ -91,3 +92,26 @@ int main(int argc, char *argv[])
     std::cout << "BEST: class = " << bestId << ", prob = " << bestVal << std::endl;
 
 }
+
+// TODO: try this
+    //std::atomic_int count = 0;
+    //int done = 0;
+    //std::mutex mtx;
+    //std::condition_variable cond_var;
+    //for (int i = 0; i < numReq; i++) {
+    //    inferRequests[i].SetCompletionCallback([i, &inferRequests, &end_time, &count, &done, &mtx, &cond_var]() {
+    //        count++;
+    //        if (steady_clock::now() < end_time) {
+    //            inferRequests[i].StartAsync();
+    //        } else {
+    //            std::lock_guard<std::mutex> lock(mtx);
+    //            done++;
+    //            cond_var.notify_one();
+    //        }
+    //    });
+    //    inferRequests[i].StartAsync();
+    //}
+    //std::unique_lock<std::mutex> lock(mtx);
+    //cond_var.wait(lock, [&]() {
+    //    return done == numReq;
+    //    });
