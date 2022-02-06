@@ -7,6 +7,7 @@ int main(int argc, char *argv[])
     InferenceEngine::Core engine;
     engine.SetConfig({{"CPU_THREADS_NUM", "8"}}, "CPU");
     engine.SetConfig({{"CPU_THROUGHPUT_STREAMS", "32"}}, "CPU");
+    int numReq = 32;
     auto devices = engine.GetAvailableDevices();
     std::cout << "Available devices :";
     for (const auto& device: devices) {
@@ -30,7 +31,6 @@ int main(int argc, char *argv[])
     std::cout << "Done\n";
     // Create Infer Request
     std::cout << "Creating infer request...";
-    int numReq = 32;
     std::vector<InferenceEngine::InferRequest> inferRequests(numReq);
     for (int i = 0; i < numReq; i++) {
         inferRequests[i] = execNetwork.CreateInferRequest();
@@ -99,19 +99,18 @@ int main(int argc, char *argv[])
     //std::mutex mtx;
     //std::condition_variable cond_var;
     //for (int i = 0; i < numReq; i++) {
-    //    inferRequests[i].SetCompletionCallback([i, &inferRequests, &end_time, &count, &done, &mtx, &cond_var]() {
+    //    inferRequests[i].SetCompletionCallback([i, numReq, &inferRequests, &end_time, &count, &done, &mtx, &cond_var]() {
     //        count++;
     //        if (steady_clock::now() < end_time) {
     //            inferRequests[i].StartAsync();
     //        } else {
     //            std::lock_guard<std::mutex> lock(mtx);
-    //            done++;
-    //            cond_var.notify_one();
+    //            if (++done == numReq) {
+    //                cond_var.notify_one();
+    //            }
     //        }
     //    });
     //    inferRequests[i].StartAsync();
     //}
     //std::unique_lock<std::mutex> lock(mtx);
-    //cond_var.wait(lock, [&]() {
-    //    return done == numReq;
-    //    });
+    //cond_var.wait(lock, [&]() { return done == numReq; });

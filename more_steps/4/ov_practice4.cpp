@@ -5,9 +5,10 @@
 int main(int argc, char *argv[])
 {
     InferenceEngine::Core engine;
-    engine.SetConfig({{"CPU_THREADS_NUM", "8"}}, "CPU");
+    engine.SetConfig({{"CPU_THREADS_NUM", "0"}}, "CPU");
     engine.SetConfig({{"CPU_THROUGHPUT_STREAMS", "32"}}, "CPU");
     engine.SetConfig({{"PERF_COUNT", "YES"}}, "CPU");
+    int numReq = 32;
     auto devices = engine.GetAvailableDevices();
     std::cout << "Available devices :";
     for (const auto& device: devices) {
@@ -17,7 +18,7 @@ int main(int argc, char *argv[])
 
     std::cout << "Reading...";
     // Read model from IR file (XML/BIN)
-    InferenceEngine::CNNNetwork cnnNetwork = engine.ReadNetwork("c:\\openvino_basic_practice\\m2.xml");
+    InferenceEngine::CNNNetwork cnnNetwork = engine.ReadNetwork("c:\\openvino_basic_practice\\b8.xml");
     std::cout << "Done\n";
 
     // Modify inputs format before ‘LoadNetwork’
@@ -31,7 +32,6 @@ int main(int argc, char *argv[])
     std::cout << "Done\n";
     // Create Infer Request
     std::cout << "Creating infer request...";
-    int numReq = 32;
     std::vector<InferenceEngine::InferRequest> inferRequests(numReq);
     for (int i = 0; i < numReq; i++) {
         inferRequests[i] = execNetwork.CreateInferRequest();
@@ -46,31 +46,33 @@ int main(int argc, char *argv[])
     std::cout << image.channels() << " " << image.rows << " " << image.cols << "\n";
 
     size_t batch = input_info->getTensorDesc().getDims()[0];
+    std::cout << "Batch size is " << batch << std::endl;
     // After ‘CreateInferRequest’ and load image
     InferenceEngine::TensorDesc tDesc(InferenceEngine::Precision::U8,
                                       {batch, 3, size, size},
                                       InferenceEngine::Layout::NHWC);
 
+    std::vector<std::vector<uint8_t>> batched_buffers(numReq);
     for (int i = 0; i < numReq; i++) {
-        std::vector<uint8_t> batched_buffer(batch * 3 * size * size);
-        auto blob = InferenceEngine::make_shared_blob<uint8_t>(tDesc, batched_buffer.data());
-        for (int j = 0; j < batch; j++) {
-            memcpy(batched_buffer.data() + j * 3 * size * size, image.ptr(), 3 * size * size);
+        batched_buffers[i] = std::vector<uint8_t>(batch * 3 * size * size);
+        auto blob = InferenceEngine::make_shared_blob<uint8_t>(tDesc, batched_buffers[i].data());
+        for (size_t j = 0; j < batch; j++) {
+            memcpy(batched_buffers[i].data() + j * 3 * size * size, image.ptr(), 3 * size * size);
         }
         inferRequests[i].SetBlob("data", blob);
     }
-    int count = 0;
     using namespace std::chrono;
     auto start_time = steady_clock::now();
-    auto end_time = steady_clock::now() + seconds(2);
+    auto end_time = steady_clock::now() + seconds(10);
     std::cout << "Running inference...\n";
+    int count = 0;
     while (steady_clock::now() < end_time) {
         for (int i = 0; i < numReq; i++) {
             inferRequests[i].StartAsync();
         }
         for (int i = 0; i < numReq; i++) {
             inferRequests[i].Wait();
-            count+=batch;
+            count += batch;
         }
     }
     end_time = steady_clock::now();
@@ -79,7 +81,7 @@ int main(int argc, char *argv[])
     std::cout << "Done\n";
     std::cout << count << " frames completed within " << diff << "ms. FPS=" << fps << "\n";
 
-    // Get results array (1x1000)
+    // Get results array (batch x 1000)
     auto* result = inferRequests[0].GetBlob("prob")->as<InferenceEngine::MemoryBlob>();
     float* resultData = result->rmap().as<float*>();
 

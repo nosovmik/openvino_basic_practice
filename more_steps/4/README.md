@@ -24,18 +24,19 @@ Get 'batch' number from model
     size_t batch = input_info->getTensorDesc().getDims()[0];
 ```
 
-Filling blobs to infer requests (we have multiple requests created on Step 3)
+Create buffers, create and fill blobs to infer requests (we have multiple requests created on Step 3)
 ```
     // After ‘CreateInferRequest’ and load image
     InferenceEngine::TensorDesc tDesc(InferenceEngine::Precision::U8,
                                       {batch, 3, size, size},
                                       InferenceEngine::Layout::NHWC);
 
+    std::vector<std::vector<uint8_t>> batched_buffers(numReq);
     for (int i = 0; i < numReq; i++) {
-        std::vector<uint8_t> batched_buffer(batch * 3 * size * size);
-        auto blob = InferenceEngine::make_shared_blob<uint8_t>(tDesc, batched_buffer.data());
-        for (int j = 0; j < batch; j++) {
-            memcpy(batched_buffer.data() + j * 3 * size * size, image.ptr(), 3 * size * size);
+        batched_buffers[i] = std::vector<uint8_t>(batch * 3 * size * size);
+        auto blob = InferenceEngine::make_shared_blob<uint8_t>(tDesc, batched_buffers[i].data());
+        for (size_t j = 0; j < batch; j++) {
+            memcpy(batched_buffers[i].data() + j * 3 * size * size, image.ptr(), 3 * size * size);
         }
         inferRequests[i].SetBlob("data", blob);
     }
